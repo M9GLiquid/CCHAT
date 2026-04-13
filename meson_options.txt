@@ -1,0 +1,9 @@
+option('build_server',
+  type: 'boolean',
+  value: true,
+  description: 'Build the server executable target')
+
+option('build_client',
+  type: 'boolean',
+  value: false,
+  description: 'Build the client executable target')

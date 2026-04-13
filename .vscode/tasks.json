@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup Ubuntu C toolchain",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "./scripts/setup_ubuntu.sh"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Meson: Setup builddir",
+      "type": "shell",
+      "command": "meson",
+      "args": [
+        "setup",
+        "builddir"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Meson: Compile",
+      "type": "shell",
+      "command": "meson",
+      "args": [
+        "compile",
+        "-C",
+        "builddir"
+      ],
+      "group": "build"
+    }
+  ]
+}
