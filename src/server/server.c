@@ -14,7 +14,7 @@
 
 typedef struct {
   Server *server;
-  int client_id
+  int client_id;
 } ClientThreadArgs;
 
 static bool is_blank_string(const char *text) {
@@ -26,7 +26,7 @@ static void trim_newline(char *text) {
     return;
   }
 
-  text[strcspn(text, "\r\n")] == '\0';
+  text[strcspn(text, "\r\n")] = '\0';
 }
 
 static bool has_invalid_name_input(Server *server, const char *text) {
@@ -272,7 +272,7 @@ static void handle_msg(Server *server, int client_id, char *args) {
     return;
   }
 
-  if (server_client_in_channel(server, client_id, channel_id)) {
+  if (!server_client_in_channel(server, client_id, channel_id)) {
     send_error(fd, "You are not in that channel");
     return;
   }
@@ -302,7 +302,7 @@ bool handle_command(Server *server, int client_id, char *line) {
   }
 
   command = strtok(line, " ");
-  args = strtok(args, "");
+  args = strtok(NULL, "");
 
  if (command == NULL) {
   send_error(fd, "Invalid command");
@@ -341,7 +341,7 @@ bool handle_command(Server *server, int client_id, char *line) {
 static void *client_thread(void *arg) {
   ClientThreadArgs *thread_args = (ClientThreadArgs *) arg;
   Server *server = NULL;
-  int client_id = NULL;
+  int client_id = -1;
   int fd = -1;
   char buffer[BUFFER_SIZE];
 
@@ -376,7 +376,7 @@ static void *client_thread(void *arg) {
       continue;
     }
 
-    state_remove_client(server, client_id);
+    server_remove_client(server, client_id);
     return NULL;
   }
 }
@@ -431,7 +431,7 @@ void run_server(int port) {
     pthread_t thread_id;
     ClientThreadArgs *thread_args = NULL;
 
-    if (client_id < 0) {
+    if (client_fd < 0) {
       perror("accept");
       continue;
     }

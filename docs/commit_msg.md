@@ -1,9 +1,8 @@
 # Git Commit Message Guidelines
 
-**Cursor agents:** This repo includes a skill that encodes the same rules for
-automated commits: `.cursor/skills/git-commit-messages/SKILL.md`.
-
-This document outlines best practices for writing clear, consistent commit messages based on [Chris Beams' seven rules](http://chris.beams.io/posts/git-commit/#seven-rules).
+This document outlines best practices for writing clear, consistent commit
+messages based on [Chris Beams' seven rules](http://chris.beams.io/posts/git-commit/#seven-rules),
+with an added preference for short user-centric bodies.
 
 ## The Seven Rules
 
@@ -17,7 +16,7 @@ This document outlines best practices for writing clear, consistent commit messa
 
 ## Commit Message Format
 
-```
+```text
 <type>(<scope>): <subject>
 
 <body>
@@ -37,9 +36,10 @@ This document outlines best practices for writing clear, consistent commit messa
   - `test`: Adding or updating tests
   - `chore`: Maintenance tasks, build config, etc.
 
-- **Scope** (Recommended): The area of the codebase affected (e.g., `unity`, `backend`, `frontend`, `api`)
+- **Scope** (Recommended): The area of the codebase affected
+  (e.g. `unity`, `backend`, `frontend`, `api`)
 
-- **Subject**: 
+- **Subject**:
   - Maximum 50 characters
   - Capitalize first letter
   - No period at the end
@@ -53,6 +53,18 @@ This document outlines best practices for writing clear, consistent commit messa
 - Explain **what** changed and **why**, not **how**
 - Provide context and reasoning
 - Reference issue numbers if applicable
+- Prefer writing for the **user of the app** when the change is user-facing
+- Keep the body concise and avoid low-level implementation details unless they
+  are necessary to understand the impact
+
+### Style Preference For This Repo
+
+- Start each body paragraph with a clear action word such as `Added`,
+  `Updated`, `Fixed`, `Improved`, or `Removed`
+- Make the body to the point and centered on the outcome a user will notice
+- If the change is mostly internal, describe the practical benefit rather than
+  listing code-level edits
+- One or two short paragraphs is usually enough
 
 ### Footer (Optional)
 
@@ -63,49 +75,62 @@ This document outlines best practices for writing clear, consistent commit messa
 
 ### Good Commit Messages
 
-```
+```text
 feat(unity): Add motion playback system
 
-Implement a system to play back generated motion sequences
-in Unity. This allows users to preview animations before
-applying them to characters.
+Added motion playback so users can preview generated
+animations before applying them to characters.
 
-The system uses a queue-based approach to handle multiple
-motion sequences and provides callbacks for playback events.
+Updated the playback flow to handle multiple queued
+sequences more reliably.
 ```
 
-```
+```text
 fix(backend): Resolve ZeroMQ connection timeout
 
-The ZeroMQ connection was timing out after 5 seconds due
-to incorrect socket configuration. This caused the backend
-to fail when Unity attempted to connect.
+Fixed a backend connection issue that caused Unity requests
+to time out after a few seconds.
 
-Updated socket options to use ZMQ_LINGER=0 and increased
-connection timeout to 30 seconds.
+Updated the socket configuration so connections stay alive
+longer during startup.
 ```
 
-```
+```text
 docs: Add commit message guidelines
 
-Create comprehensive commit message template based on
-Chris Beams' seven rules to ensure consistent commit
-history across the project.
+Added commit message guidance so contributors can write more
+consistent and readable project history.
 ```
 
 ### Bad Commit Messages
 
-```
-fixed bug  (# Avoid: past tense, no type prefix)
-```
-
-```
-Add feature to play motion (# Avoid: too vague, no context)
+```text
+fixed bug
 ```
 
+Avoid: past tense, no type prefix, too vague.
+
+```text
+Add feature to play motion
 ```
-feat: Added new system for playing back motion sequences in Unity (# Avoid: past tense, too long)
+
+Avoid: too vague, no useful context.
+
+```text
+feat: Added new system for playing back motion sequences in Unity
 ```
+
+Avoid: past tense in the subject and too long.
+
+```text
+fix(client): Update socket helper
+
+Changed send_all and refactored the socket loop to use a
+different helper function and renamed local variables.
+```
+
+Avoid: starts with a weak action word and focuses on code
+internals instead of the user-visible outcome.
 
 ## Additional Resources
 
@@ -119,49 +144,37 @@ feat: Added new system for playing back motion sequences in Unity (# Avoid: past
 
 ## Quick Reference Template
 
-```
+```text
 <type>(<scope>): <subject>
 
-<body explaining what and why>
+Added|Updated|Fixed <short user-facing summary>
+
+Added|Updated|Fixed <optional second short user-facing summary>
 
 <footer with issue references>
 ```
 
 ## More Examples
 
-```
-feat(module): Add lorem ipsum dolor sit amet
+```text
+feat(module): Add export flow
 
-Implement consectetur adipiscing elit functionality
-to improve sed do eiusmod tempor incididunt. This
-change enables ut labore et dolore magna aliqua.
+Added an export flow so users can save generated data from
+the app without using manual workarounds.
 
-The implementation follows enim ad minim veniam
-patterns and maintains quis nostrud exercitation
-compatibility.
+Updated the export behavior to produce clearer file names.
 ```
 
-```
-fix(component): Resolve ullamco laboris nisi issue
+```text
+fix(component): Resolve connection retry issue
 
-The system was experiencing ut aliquip ex ea commodo
-consequat errors when processing duis aute irure
-dolor data. This occurred because reprehenderit in
-voluptate validation was missing.
-
-Added velit esse cillum dolore check before accessing
-eu fugiat nulla pariatur data and return early with
-error message if invalid.
+Fixed a retry issue that caused the app to disconnect too
+quickly when the server was briefly unavailable.
 ```
 
-```
-docs: Update excepteur sint occaecat cupidatat
+```text
+docs: Update API usage guide
 
-Add missing documentation for non proident sunt in
-culpa qui officia deserunt mollit anim id est
-laborum section. Include request/response examples
-and error codes.
-
-This helps new developers understand the API
-structure and integration points.
+Updated the documentation with clearer request examples and
+the main error cases users may run into during setup.
 ```

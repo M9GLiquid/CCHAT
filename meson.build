@@ -1,7 +1,7 @@
 project(
   'cchat',
   'c',
-  version: '0.3.0',
+  version: '0.4.0',
   default_options: [
     'c_std=c17',
     'warning_level=2'

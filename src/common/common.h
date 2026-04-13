@@ -9,6 +9,6 @@
 #define MAX_USERNAME 32
 #define MAX_MESSAGE 512
 #define BUFFER_SIZE 1024
-#define PORT_MAX 6535
+#define PORT_MAX 65535
 
 #endif

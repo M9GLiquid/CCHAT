@@ -137,6 +137,8 @@ int server_create_channel(Server *server, const char *name) {
 
     return i;
   }
+
+  return -1;
 }
 
 bool server_client_in_channel(Server * server, int client_id, int channel_id) {
