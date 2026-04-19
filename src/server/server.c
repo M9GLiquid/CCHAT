@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "server.h"
 #include "state.h"
 #include "../common/common.h"
@@ -11,6 +12,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include "../platform/socket_platform.h"
 
 typedef struct {
   Server *server;
@@ -38,7 +41,8 @@ void send_text(int fd, const char *text) {
     return;
   }
 
-  send(fd, text, strlen(text), 0);
+  /* EDITED: Centralize server writes through the Linux-safe send loop. */
+  (void)send_all(fd, text, strlen(text));
 }
 
 static void send_prefixed_line(int fd, const char *prefix, const char *message) {
@@ -58,6 +62,29 @@ static void send_info(int fd, const char *message) {
 
 static void send_error(int fd, const char *message) {
   send_prefixed_line(fd, "Error", message);
+}
+
+static bool send_all(int fd, const char *buffer, size_t length) {
+  size_t total_sent = 0;
+
+  if (fd < 0 || buffer == NULL) {
+    return false;
+  }
+  while (total_sent < length) {
+    ssize_t sent_now = send(fd, buffer + total_sent, length - total_sent, socket_send_flags());
+
+    if (sent_now < 0 && errno == EINTR) {
+      continue;
+    }
+
+    if (sent_now <= 0) {
+      return false;
+    }
+
+    total_sent += (size_t)sent_now;
+  }
+
+  return true;
 }
 
 static int get_client_fd(Server *server, int client_id) {

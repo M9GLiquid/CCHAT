@@ -1,5 +1,7 @@
+#include <errno.h>
 #include "client.h"
 #include "../common/common.h"
+#include "../platform/socket_platform.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -32,7 +34,11 @@ static bool send_all(int socket_fd, const char *buffer, size_t length) {
   }
 
   while (total_sent < length) {
-    ssize_t sent_now = send(socket_fd, buffer + total_sent, length - total_sent, 0);
+    ssize_t sent_now = send(socket_fd, buffer + total_sent, length - total_sent, socket_send_flags());
+
+    if (sent_now <= 0 && errno == EINTR) {
+      continue;
+    }
 
     if (sent_now <= 0) {
       return false;
