@@ -196,8 +196,6 @@ void run_zmq_server(int port) {
       continue;
     }
 
-    (void)send_reply(router, identity, "ROUTED\n");
-
     zframe_destroy(&identity);
     zmsg_destroy(&incoming);
   }

@@ -59,5 +59,5 @@ If the client target is enabled:
 ```
 
 ## Documentations
-[CZMQ Documentation](https://github.com/zeromq/czmq#using-czmq)  
-[CZMQ Man Pages](https://www.mankier.com/7/zmq)  
+[CZMQ API Documentation](https://github.com/zeromq/czmq#using-czmq)  
+[ZMQ API Documentation](https://libzmq.readthedocs.io/en/latest/)  
