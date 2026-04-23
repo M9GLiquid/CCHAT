@@ -16,12 +16,14 @@
       "command": "meson",
       "args": [
         "setup",
-        "builddir"
+        "builddir",
+        "--reconfigure"
       ],
       "group": "build"
     },
     {
       "label": "Meson: Compile",
+      "dependsOn": "Meson: Setup builddir",
       "type": "shell",
       "command": "meson",
       "args": [

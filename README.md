@@ -57,3 +57,7 @@ If the client target is enabled:
 ```bash
 ./build/cchat_client
 ```
+
+## Documentations
+[CZMQ Documentation](https://github.com/zeromq/czmq#using-czmq)  
+[CZMQ Man Pages](https://www.mankier.com/7/zmq)  

@@ -5,26 +5,18 @@
       "name": "Linux",
       "cStandard": "c17",
       "intelliSenseMode": "linux-gcc-x64",
+      "compileCommands": "${workspaceFolder}/builddir/compile_commands.json",
       "includePath": [
-        "${workspaceFolder}/CChat/src",
-        "${workspaceFolder}/CChat/src/common",
-        "${workspaceFolder}/CChat/src/server",
-        "${workspaceFolder}/CChat/src/client"
+        "${workspaceFolder}/src/**",
+        "${workspaceFolder}/third_party/wsl-headers/ubuntu24/include/**"
       ],
-      "defines": []
-    },
-    {
-      "name": "Win32",
-      "compilerPath": "C:/msys64/ucrt64/bin/gcc.exe",
-      "cStandard": "c17",
-      "intelliSenseMode": "windows-gcc-x64",
-      "includePath": [
-        "${workspaceFolder}/CChat/src",
-        "${workspaceFolder}/CChat/src/common",
-        "${workspaceFolder}/CChat/src/server",
-        "${workspaceFolder}/CChat/src/client"
-      ],
-      "defines": []
+      "browse": {
+        "path": [
+          "${workspaceFolder}/src",
+          "${workspaceFolder}/third_party/wsl-headers/ubuntu24/include"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
     }
   ]
 }
