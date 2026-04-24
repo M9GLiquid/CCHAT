@@ -24,38 +24,53 @@ If you already have `Ubuntu-24.04` in WSL for other projects, reuse that distro 
 
 ## Build
 
-Build the server:
+Use the VS Code tasks in this repository for the common build flows.
 
 ```bash
-meson setup build
-meson compile -C build
+meson setup Build -Dbuild_server=true -Dbuild_client=false
+meson compile -C Build
 ```
 
-Build server and client:
+Build the server and client:
 
 ```bash
-meson setup build -Dbuild_client=true
-meson compile -C build
+meson setup Build -Dbuild_server=true -Dbuild_client=true
+meson compile -C Build
 ```
+
+Build the client only:
+
+```bash
+meson setup Build -Dbuild_server=false -Dbuild_client=true
+meson compile -C Build
+```
+
+In VS Code, the matching tasks are:
+
+- `Meson: Build Server`
+- `Meson: Build Server & Client`
+- `Meson: Build Client`
+- `Meson: Compile`
+- `Meson: Wipe`
 
 ## Launch
 
 Start the server:
 
 ```bash
-./build/cchat_server
+./Build/cchat_server
 ```
 
 Start the server on a custom port:
 
 ```bash
-./build/cchat_server 5555
+./Build/cchat_server 5555
 ```
 
 If the client target is enabled:
 
 ```bash
-./build/cchat_client
+./Build/cchat_client
 ```
 
 ## Documentations

@@ -2,6 +2,122 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Server",
+      "type": "shell",
+      "command": "echo 'Server ready'; exec bash -l",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": false,
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "cchat-main"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "linux": {
+        "options": {
+          "shell": {
+            "executable": "/bin/bash",
+            "args": [
+              "-lc"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "label": "Client 1",
+      "type": "shell",
+      "command": "echo 'Client 1 ready'; exec bash -l",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": false,
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "cchat-main"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "linux": {
+        "options": {
+          "shell": {
+            "executable": "/bin/bash",
+            "args": [
+              "-lc"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "label": "Client 2",
+      "type": "shell",
+      "command": "echo 'Client 2 ready'; exec bash -l",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": false,
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "cchat-main"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "linux": {
+        "options": {
+          "shell": {
+            "executable": "/bin/bash",
+            "args": [
+              "-lc"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "label": "Git Terminal",
+      "type": "shell",
+      "command": "echo 'Git terminal ready'; exec bash -l",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": false,
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "cchat-git"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "linux": {
+        "options": {
+          "shell": {
+            "executable": "/bin/bash",
+            "args": [
+              "-lc"
+            ]
+          }
+        }
+      }
+    },
+    {
       "label": "Setup Ubuntu C toolchain",
       "type": "shell",
       "command": "bash",
@@ -11,25 +127,60 @@
       "group": "build"
     },
     {
-      "label": "Meson: Setup builddir",
+      "label": "Meson: Build Server",
       "type": "shell",
       "command": "meson",
       "args": [
         "setup",
-        "builddir",
-        "--reconfigure"
+        "Build",
+        "-Dbuild_server=true",
+        "-Dbuild_client=false"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Meson: Build Server & Client",
+      "type": "shell",
+      "command": "meson",
+      "args": [
+        "setup",
+        "Build",
+        "-Dbuild_server=true",
+        "-Dbuild_client=true"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Meson: Build Client",
+      "type": "shell",
+      "command": "meson",
+      "args": [
+        "setup",
+        "Build",
+        "-Dbuild_server=false",
+        "-Dbuild_client=true"
       ],
       "group": "build"
     },
     {
       "label": "Meson: Compile",
-      "dependsOn": "Meson: Setup builddir",
       "type": "shell",
       "command": "meson",
       "args": [
         "compile",
         "-C",
-        "builddir"
+        "Build"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Meson: Wipe",
+      "type": "shell",
+      "command": "meson",
+      "args": [
+        "setup",
+        "Build",
+        "--wipe"
       ],
       "group": "build"
     }

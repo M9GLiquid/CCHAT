@@ -1,8 +1,6 @@
 {
-  "C_Cpp.default.compileCommands": "/mnt/d/Code/C/CChat/builddir/compile_commands.json",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/Build/compile_commands.json",
   "C_Cpp.formatting": "clangFormat",
-  "C_Cpp.clang_format_style": "file",
-  "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: LLVM, IndentWidth: 2, TabWidth: 2, UseTab: Never }",
   "editor.autoIndent": "full",
   "editor.detectIndentation": false,
   "editor.formatOnType": true,

@@ -1,8 +1,8 @@
-build/
-builddir/
+Build/
 out/
 *.o
 *.so
 *.a
 third_party/
 .github
+.env
