@@ -6,86 +6,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#define lock(client) pthread_mutex_lock(&(client)->lock)
-#define unlock(client) pthread_mutex_unlock(&(client)->lock)
-
 static void print_connection_usage(const char *app_name) {
   printf("Usage: %s <server_ip> <port>\n", app_name);
   printf("Example: %s 127.0.0.1 5555\n", app_name);
-}
-
-static void client_stop(Client *client) {
-  if (!client)
-    return;
-
-  lock(client);
-  client->running = false;
-  unlock(client);
-}
-
-static bool is_client_running(Client *client) {
-  bool running = false;
-
-  if (!client)
-    return false;
-  lock(client);
-  running = client->running;
-  unlock(client);
-  return running;
-}
-
-static bool client_queue_message(Client *client, const char *message) {
-  size_t next_tail = 0;
-  bool queued = false;
-
-  if (!client || !message)
-    return false;
-
-  lock(client);
-
-  if (client->outbox_count < CLIENT_OUTBOX_CAPACITY) {
-    next_tail = (client->outbox_tail + 1) % CLIENT_OUTBOX_CAPACITY;
-    char *slot = client->outbox[client->outbox_tail];
-    snprintf(slot, BUFFER_SIZE, "%s", message);
-    client->outbox_tail = next_tail;
-    client->outbox_count++;
-    queued = true;
-  }
-
-  unlock(client);
-  return queued;
-}
-
-static bool client_peek_message(Client *client, char *message,
-                                size_t message_size) {
-  bool available = false;
-
-  if (!client || !message || message_size == 0)
-    return false;
-
-  lock(client);
-
-  if (client->outbox_count > 0) {
-    snprintf(message, message_size, "%s", client->outbox[client->outbox_head]);
-    available = true;
-  }
-
-  unlock(client);
-  return available;
-}
-
-static void client_drop_message(Client *client) {
-  if (!client)
-    return;
-
-  lock(client);
-
-  if (client->outbox_count > 0) {
-    client->outbox_head = (client->outbox_head + 1) % CLIENT_OUTBOX_CAPACITY;
-    client->outbox_count--;
-  }
-
-  unlock(client);
 }
 
 static void client_generate_identity(Client *client) {
@@ -96,91 +19,101 @@ static void client_generate_identity(Client *client) {
            (long)getpid(), (long long)zclock_usecs());
 }
 
-static bool client_open_socket(Client *client) {
+static zsock_t *client_open_socket(Client *client) {
   char endpoint[128];
+  zsock_t *socket = NULL;
 
   if (!client || is_blank_string(client->server_ip))
-    return false;
+    return NULL;
 
-  client->socket = zsock_new(ZMQ_DEALER);
-  if (client->socket == NULL) {
+  socket = zsock_new(ZMQ_DEALER);
+  if (!socket) {
     fprintf(stderr, "Failed to create DEALER socket\n");
-    return false;
+    return NULL;
   }
 
-  zsock_set_identity(client->socket, client->identity);
-  zsock_set_probe_router(client->socket, 1);     // send msg on new connection.
-  zsock_set_reconnect_ivl(client->socket, 1000); // 1 sec
-  zsock_set_reconnect_ivl_max(client->socket, 5000); // 5 sec
-  zsock_set_sndtimeo(client->socket, 100); // timeout for send operation
-  zsock_set_linger(client->socket, 0);     // close fast
+  zsock_set_identity(socket, client->identity);
+  zsock_set_probe_router(socket, 1);         // send msg on new connection.
+  zsock_set_reconnect_ivl(socket, 1000);     // 1 sec
+  zsock_set_reconnect_ivl_max(socket, 5000); // 5 sec
+  zsock_set_sndtimeo(socket, 100);           // timeout for send operation
+  zsock_set_linger(socket, 0);               // close fast
 
   snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", client->server_ip,
            client->port);
-  if (zsock_connect(client->socket, "%s", endpoint) < 0) {
+  if (zsock_connect(socket, "%s", endpoint) < 0) {
     fprintf(stderr, "Failed to connect to server at %s\n", endpoint);
-    zsock_destroy(&client->socket);
-    return false;
+    zsock_destroy(&socket);
+    return NULL;
   }
 
-  return true;
+  return socket;
 }
 
-static void *network_thread_main(void *arg) {
+static void client_network_actor(zsock_t *pipe, void *arg) {
   Client *client = (Client *)arg;
+  zsock_t *socket = NULL;
   zpoller_t *poller = NULL;
-  char outbound[BUFFER_SIZE];
 
-  if (!client || !client->socket)
-    return NULL;
-
-  poller = zpoller_new(client->socket, NULL);
-  if (!poller) {
-    fprintf(stderr, "Failed to create client poller\n");
-    return NULL;
+  if (!client) {
+    zsock_signal(pipe, 1);
+    return;
   }
 
-  while (is_client_running(client)) {
-    while (client_peek_message(client, outbound, sizeof(outbound))) {
-      if (zstr_send(client->socket, outbound) == 0) {
-        client_drop_message(client);
-      } else {
-        fprintf(stderr, "Send delayed; waiting for reconnect.\n");
-        zclock_sleep(250);
+  socket = client_open_socket(client);
+  if (!socket) {
+    zsock_signal(pipe, 1);
+    return;
+  }
+
+  poller = zpoller_new(pipe, socket, NULL);
+  if (!poller) {
+    fprintf(stderr, "Failed to create client poller\n");
+    zsock_destroy(&socket);
+    zsock_signal(pipe, 1);
+    return;
+  }
+
+  zsock_signal(pipe, 0);
+
+  while (!zsys_interrupted) {
+    void *which = zpoller_wait(poller, -1);
+
+    if (which == pipe) {
+      char *outbound = zstr_recv(pipe);
+      if (!outbound)
+        break;
+
+      if (strcmp(outbound, "$TERM") == 0) {
+        zstr_free(&outbound);
         break;
       }
-    }
 
-    if (!is_client_running(client))
-      break;
+      if (zstr_send(socket, outbound) != 0)
+        fprintf(stderr, "Send delayed; waiting for reconnect.\n");
 
-    if (zpoller_wait(poller, 100) == client->socket) {
-      char *incoming = zstr_recv(client->socket);
-
+      zstr_free(&outbound);
+    } else if (which == socket) {
+      char *incoming = zstr_recv(socket);
       if (!incoming) {
-        fprintf(stderr, "Disconnected from the server; reconnecting. \n");
+        fprintf(stderr, "Disconnected from the server; reconnecting... \n");
         zclock_sleep(250);
         continue;
       }
 
       printf("%s", incoming);
-      if (!strchr(incoming, '\n'))
+      if (strchr(incoming, '\n'))
         printf("\n");
       fflush(stdout);
       zstr_free(&incoming);
       continue;
     }
-
     if (zpoller_terminated(poller))
       break;
   }
 
   zpoller_destroy(&poller);
-
-  if (client->socket)
-    zsock_destroy(&client->socket);
-
-  return NULL;
+  zsock_destroy(&socket);
 }
 
 int client_connect(Client *client, const char *server_ip, int port) {
@@ -196,35 +129,22 @@ int client_connect(Client *client, const char *server_ip, int port) {
 
   memset(client, 0, sizeof(*client));
 
-  if (pthread_mutex_init(&client->lock, NULL)) {
-    perror("pthread_mutex_init");
-    return -1;
-  }
-
   snprintf(client->server_ip, sizeof(client->server_ip), "%s", server_ip);
   client->port = port;
-  client->running = true;
   client_generate_identity(client);
 
-  if (!client_open_socket(client)) {
-    pthread_mutex_destroy(&client->lock);
+  client->network_actor = zactor_new(client_network_actor, client);
+  if (!client->network_actor)
     return -1;
-  }
+
   return 0;
 }
 
 void client_run(Client *client) {
   char input[BUFFER_SIZE];
 
-  if (!client || !client->socket)
+  if (!client || !client->network_actor)
     return;
-
-  if (pthread_create(&client->network_thread, NULL, network_thread_main,
-                     client) != 0) {
-    perror("Failed to create receiver thread");
-    client->running = false;
-    return;
-  }
 
   printf("Connected.\n");
   printf("Send format: <target_id>:<message>\n");
@@ -233,39 +153,30 @@ void client_run(Client *client) {
   printf("  0:ping back\n");
   printf("  QUIT\n");
 
-  while (is_client_running(client) && !zsys_interrupted) {
-    if (!fgets(input, sizeof(input), stdin)) {
-      client_stop(client);
+  while (!zsys_interrupted) {
+    if (!fgets(input, sizeof(input), stdin))
       break;
-    }
 
     trim_newline(input);
     if (input[0] == '\0')
       continue;
 
-    if (strcmp(input, "QUIT") == 0) {
-      client->running = false;
+    if (strcmp(input, "QUIT") == 0)
+      break;
+
+    if (zstr_send(client->network_actor, input) != 0) {
+      fprintf(stderr, "Failed to queue message for network actor.\n");
       break;
     }
-
-    if (!client_queue_message(client, input))
-      fprintf(stderr, "OPutbound queue full, message dropped. \n");
   }
-
-  client_stop(client);
-  pthread_join(client->network_thread, NULL);
 }
 
 void client_disconnect(Client *client) {
   if (!client)
     return;
 
-  client_stop(client);
-
-  if (client->socket)
-    zsock_destroy(&client->socket);
-
-  pthread_mutex_destroy(&client->lock);
+  if (client->network_actor)
+    zactor_destroy(&client->network_actor);
   memset(client, 0, sizeof(*client));
 }
 

@@ -2,9 +2,6 @@
 
 #include <string.h>
 
-#define lock(server) pthread_mutex_lock(&(server)->lock)
-#define unlock(server) pthread_mutex_unlock(&(server)->lock)
-
 static bool is_valid_client_id(int client_id) {
   return client_id >= 0 && client_id < MAX_CLIENTS;
 }
@@ -31,14 +28,12 @@ void server_init(Server *server) {
     return;
 
   memset(server, 0, sizeof(*server));
-  pthread_mutex_init(&server->lock, NULL);
 }
 
 void server_destroy(Server *server) {
   if (!server)
     return;
 
-  lock(server);
 
   for (int i = 0; i < MAX_CLIENTS; i++) {
     Client *client = &server->clients[i];
@@ -48,9 +43,6 @@ void server_destroy(Server *server) {
 
     memset(client, 0, sizeof(*client));
   }
-
-  pthread_mutex_unlock(&server->lock);
-  pthread_mutex_destroy(&server->lock);
 }
 
 static int find_client(Server *server, const zframe_t *identity) {
@@ -72,9 +64,7 @@ int server_get_client(Server *server, const zframe_t *identity) {
   if (!server || !identity)
     return -1;
 
-  lock(server);
   found = find_client(server, identity);
-  unlock(server);
 
   return found;
 }
@@ -104,9 +94,7 @@ int server_add_client(Server *server, const zframe_t *identity) {
   if (!server || !identity)
     return -1;
 
-  lock(server);
   added = add_client(server, identity);
-  unlock(server);
 
   return added;
 }
@@ -122,16 +110,11 @@ bool server_get_client_identity_copy(Server *server, int client_id,
   if (!server || !is_valid_client_id(client_id))
     return false;
 
-  lock(server);
-
   Client *client = &server->clients[client_id];
-  if (!client->active || !client->identity) {
-    unlock(server);
+  if (!client->active || !client->identity) 
     return false;
-  }
 
   copy = zframe_dup(client->identity);
-  unlock(server);
 
   if (!copy)
     return false;
@@ -144,11 +127,9 @@ void server_remove_client(Server *server, int client_id) {
   if (!server || !is_valid_client_id(client_id))
     return;
 
-  lock(server);
 
   Client *client = &server->clients[client_id];
   if (!client->active) {
-    unlock(server);
     return;
   }
 
@@ -156,6 +137,4 @@ void server_remove_client(Server *server, int client_id) {
     zframe_destroy(&client->identity);
 
   memset(client, 0, sizeof(*client));
-
-  unlock(server);
 }

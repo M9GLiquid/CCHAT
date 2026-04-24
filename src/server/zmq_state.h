@@ -3,7 +3,6 @@
 
 #include "../common/common.h"
 #include <czmq.h>
-#include <pthread.h>
 
 typedef struct {
   zframe_t *identity;
@@ -12,7 +11,6 @@ typedef struct {
 
 typedef struct {
   Client clients[MAX_CLIENTS];
-  pthread_mutex_t lock;
 } Server;
 
 void server_init(Server *server);

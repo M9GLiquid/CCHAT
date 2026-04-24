@@ -10,6 +10,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct {
+  int port;
+  bool started;
+} ServerActorArgs;
+
 static bool extract_payload(zmsg_t *message, char *buffer, size_t buffer_size) {
   zframe_t *payload = NULL;
   size_t payload_size = 0;
@@ -107,22 +112,29 @@ static bool parse_route_payload(const char *buffer, int *target_client_id,
   return true;
 }
 
-void run_zmq_server(int port) {
+static void server_actor(zsock_t *pipe, void *arg) {
+  ServerActorArgs *args = (ServerActorArgs *)arg;
   Server server;
   zsock_t *router = NULL;
+  zpoller_t *poller = NULL;
+  int port = 0;
 
-  if (port <= 0 || port > PORT_MAX) {
-    fprintf(stderr, "Invalid port: %d\n", port);
-    exit(EXIT_FAILURE);
+  if (!args) {
+    zsock_signal(pipe, 1);
+    return;
   }
+
+  port = args->port;
+  args->started = false;
 
   server_init(&server);
 
   router = zsock_new(ZMQ_ROUTER);
-  if (router == NULL) {
+  if (!router) {
     fprintf(stderr, "Failed to create ROUTER socket\n");
     server_destroy(&server);
-    exit(EXIT_FAILURE);
+    zsock_signal(pipe, 1);
+    return;
   }
 
   zsock_set_linger(router, 0);
@@ -131,13 +143,26 @@ void run_zmq_server(int port) {
     fprintf(stderr, "Failed to bind ROUTER socket on port %d\n", port);
     zsock_destroy(&router);
     server_destroy(&server);
-    exit(EXIT_FAILURE);
+    zsock_signal(pipe, 1);
+    return;
   }
 
+  poller = zpoller_new(pipe, router, NULL);
+  if (!poller) {
+    fprintf(stderr, "Failed to create server poller\n");
+    zsock_destroy(&router);
+    server_destroy(&server);
+    zsock_signal(pipe, 1);
+    return;
+  }
+
+  args->started = true;
   printf("Server listening on port %d\n", port);
+  zsock_signal(pipe, 0);
 
   while (!zsys_interrupted) {
-    zmsg_t *incoming = zmsg_recv(router);
+    void *which = zpoller_wait(poller, -1);
+    zmsg_t *incoming = NULL;
     zframe_t *identity = NULL;
     char buffer[BUFFER_SIZE];
     char routed_text[BUFFER_SIZE];
@@ -145,6 +170,27 @@ void run_zmq_server(int port) {
     int client_id = -1;
     int target_client_id = -1;
 
+    if (which == pipe) {
+      char *command = zstr_recv(pipe);
+      if (!command)
+        break;
+
+      if (strcmp(command, "$TERM") == 0) {
+        zstr_free(&command);
+        break;
+      }
+
+      zstr_free(&command);
+      continue;
+    }
+
+    if (which != router) {
+      if (zpoller_terminated(poller))
+        break;
+      continue;
+    }
+
+    incoming = zmsg_recv(router);
     if (!incoming)
       break;
 
@@ -206,6 +252,29 @@ void run_zmq_server(int port) {
     zmsg_destroy(&incoming);
   }
 
+  zpoller_destroy(&poller);
   zsock_destroy(&router);
   server_destroy(&server);
+}
+
+void run_zmq_server(int port) {
+  ServerActorArgs args = {.port = port, .started = false};
+  zactor_t *actor = NULL;
+
+  if (port <= 0 || port > PORT_MAX) {
+    fprintf(stderr, "Invalid port: %d\n", port);
+    exit(EXIT_FAILURE);
+  }
+
+  actor = zactor_new(server_actor, &args);
+  if (!actor || !args.started) {
+    if (actor)
+      zactor_destroy(&actor);
+    exit(EXIT_FAILURE);
+  }
+
+  while (!zsys_interrupted)
+    zclock_sleep(100);
+
+  zactor_destroy(&actor);
 }
