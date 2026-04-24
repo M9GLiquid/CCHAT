@@ -109,7 +109,8 @@ static bool client_open_socket(Client *client) {
   }
 
   zsock_set_identity(client->socket, client->identity);
-  zsock_set_reconnect_ivl(client->socket, 1000);     // 1 sec
+  zsock_set_probe_router(client->socket, 1);     // send msg on new connection.
+  zsock_set_reconnect_ivl(client->socket, 1000); // 1 sec
   zsock_set_reconnect_ivl_max(client->socket, 5000); // 5 sec
   zsock_set_sndtimeo(client->socket, 100); // timeout for send operation
   zsock_set_linger(client->socket, 0);     // close fast

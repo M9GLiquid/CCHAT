@@ -172,6 +172,12 @@ void run_zmq_server(int port) {
     }
 
     if (!parse_route_payload(buffer, &target_client_id, &message_text)) {
+      if (buffer[0] == '\0') {
+        zframe_destroy(&identity);
+        zmsg_destroy(&incoming);
+        continue;
+      }
+
       (void)send_reply(router, identity,
                        "ERROR format is <target_id>:<message>\n");
       zframe_destroy(&identity);
