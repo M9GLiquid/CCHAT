@@ -1,12 +1,12 @@
-#include "utils.h"
-
 #include <string.h>
 
-bool is_blank_string(const char *text) {
+#include "utils.h"
+
+bool is_blank_string(cstring text) {
   return text == NULL || text[0] == '\0';
 }
 
-void trim_newline(char *text) {
+void trim_newline(string text) {
   if (text == NULL) {
     return;
   }

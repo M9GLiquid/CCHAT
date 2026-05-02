@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 
+#define cstring const char *
+#define string char *
+
 #define MAX_CLIENTS 100
 #define MAX_CHANNELS 32
 #define MAX_CHANNEL_NAME 32
@@ -10,5 +13,7 @@
 #define MAX_MESSAGE 512
 #define BUFFER_SIZE 1024
 #define PORT_MAX 65535
+
+#define NAME_PREFIX "$NAME "
 
 #endif

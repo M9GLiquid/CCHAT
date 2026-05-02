@@ -1,5 +1,5 @@
 {
-  "C_Cpp.default.compileCommands": "${workspaceFolder}/Build/compile_commands.json",
+  "C_Cpp.default.compileCommands": "/home/thomas/Code/CChat/builddir/compile_commands.json",
   "C_Cpp.formatting": "clangFormat",
   "editor.autoIndent": "full",
   "editor.detectIndentation": false,
@@ -15,5 +15,6 @@
     "editor.tabSize": 2,
     "editor.insertSpaces": true
   },
-  "C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild"
+  "C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild",
+  "terminal.integrated.enablePersistentSessions": false
 }

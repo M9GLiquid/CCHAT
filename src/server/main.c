@@ -1,8 +1,9 @@
-#include "zmq_server.h"
-
 #include <stdlib.h>
 
-int main(int argc, char *argv[]) {
+#include "zmq_server.h"
+#include "../common/common.h"
+
+int main(int argc, string argv[]) {
   int port = 5555;
 
   if (argc > 1) {

@@ -3,7 +3,9 @@
 
 #include <stdbool.h>
 
-bool is_blank_string(const char *text);
-void trim_newline(char *text);
+#include "common.h"
+
+bool is_blank_string(cstring text);
+void trim_newline(string text);
 
 #endif

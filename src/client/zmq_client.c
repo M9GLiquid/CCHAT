@@ -1,12 +1,14 @@
-#include "zmq_client.h"
-#include "../common/utils.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-static void print_connection_usage(const char *app_name) {
+#include "../common/command_parser.h"
+#include "../common/common.h"
+#include "../common/utils.h"
+#include "zmq_client.h"
+
+static void print_connection_usage(cstring app_name) {
   printf("Usage: %s <server_ip> <port>\n", app_name);
   printf("Example: %s 127.0.0.1 5555\n", app_name);
 }
@@ -80,7 +82,7 @@ static void client_network_actor(zsock_t *pipe, void *arg) {
     void *which = zpoller_wait(poller, -1);
 
     if (which == pipe) {
-      char *outbound = zstr_recv(pipe);
+      string outbound = zstr_recv(pipe);
       if (!outbound)
         break;
 
@@ -94,7 +96,7 @@ static void client_network_actor(zsock_t *pipe, void *arg) {
 
       zstr_free(&outbound);
     } else if (which == socket) {
-      char *incoming = zstr_recv(socket);
+      string incoming = zstr_recv(socket);
       if (!incoming) {
         fprintf(stderr, "Disconnected from the server; reconnecting... \n");
         zclock_sleep(250);
@@ -102,12 +104,13 @@ static void client_network_actor(zsock_t *pipe, void *arg) {
       }
 
       printf("%s", incoming);
-      if (strchr(incoming, '\n'))
+      if (!strchr(incoming, '\n'))
         printf("\n");
       fflush(stdout);
       zstr_free(&incoming);
       continue;
     }
+
     if (zpoller_terminated(poller))
       break;
   }
@@ -116,7 +119,7 @@ static void client_network_actor(zsock_t *pipe, void *arg) {
   zsock_destroy(&socket);
 }
 
-int client_connect(Client *client, const char *server_ip, int port) {
+int client_connect(Client *client, cstring server_ip, int port) {
   if (!client || is_blank_string(server_ip)) {
     fprintf(stderr, "Client connection failed: invalid argument.\n");
     return -1;
@@ -141,19 +144,36 @@ int client_connect(Client *client, const char *server_ip, int port) {
 }
 
 void client_run(Client *client) {
+  char name[MAX_USERNAME];
   char input[BUFFER_SIZE];
+  char name_message[BUFFER_SIZE];
+  Command command;
 
   if (!client || !client->network_actor)
     return;
 
   printf("Connected.\n");
-  printf("Send format: <target_id>:<message>\n");
-  printf("Examples:\n");
-  printf("  1:hello from client\n");
-  printf("  0:ping back\n");
-  printf("  QUIT\n");
+  do {
+    printf("Enter your name: ");
+    fflush(stdout);
+    if (!fgets(name, sizeof(name), stdin))
+      return;
+    trim_newline(name);
+  } while (is_blank_string(name));
+
+  snprintf(name_message, sizeof(name_message), "%s%s", NAME_PREFIX, name);
+  if (zstr_send(client->network_actor, name_message) != 0) {
+    fprintf(stderr, "Failed to queue name for network actor. \n");
+    return;
+  }
+
+  if (parse_command("/help", COMMAND_CONTEXT_CLIENT, &command))
+    printf("%s", command.text);
 
   while (!zsys_interrupted) {
+    printf("> ");
+    fflush(stdout);
+
     if (!fgets(input, sizeof(input), stdin))
       break;
 
@@ -161,8 +181,21 @@ void client_run(Client *client) {
     if (input[0] == '\0')
       continue;
 
-    if (strcmp(input, "QUIT") == 0)
+    if (!parse_command(input, COMMAND_CONTEXT_CLIENT, &command)) {
+      printf("%s", command.error);
+      continue;
+    }
+
+    if (command.action == ACTION_HELP) {
+      printf("%s", command.text);
+      continue;
+    }
+
+    if (command.action == ACTION_QUIT) {
+      if (zstr_send(client->network_actor, "/quit") != 0)
+        fprintf(stderr, "Failed to queue quit message for network actor.\n");
       break;
+    }
 
     if (zstr_send(client->network_actor, input) != 0) {
       fprintf(stderr, "Failed to queue message for network actor.\n");
@@ -180,9 +213,9 @@ void client_disconnect(Client *client) {
   memset(client, 0, sizeof(*client));
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, string argv[]) {
   Client client;
-  const char *server_ip = "127.0.0.1";
+  cstring server_ip = "127.0.0.1";
   int port = 5555;
 
   if (argc == 3) {

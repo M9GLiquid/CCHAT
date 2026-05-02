@@ -2,10 +2,10 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include "../common/common.h"
-
 #include <czmq.h>
 #include <stdbool.h>
+
+#include "../common/common.h"
 
 typedef struct {
   zactor_t *network_actor;
@@ -14,7 +14,7 @@ typedef struct {
   char identity[64];
 } Client;
 
-int client_connect(Client *client, const char *server_ip, int port);
+int client_connect(Client *client, cstring server_ip, int port);
 void client_run(Client *client);
 void client_disconnect(Client *client);
 

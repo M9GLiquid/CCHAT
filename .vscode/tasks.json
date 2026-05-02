@@ -2,22 +2,43 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Open Terminals",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "Server",
+        "Client 1",
+        "Client 2",
+        "Git Terminal"
+      ],
+      "runOptions": {
+        "runOn": "folderOpen",
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Server",
       "type": "shell",
       "command": "echo 'Server ready'; exec bash -l",
       "isBackground": true,
       "problemMatcher": [],
+      "promptOnClose": false,
       "options": {
         "cwd": "${workspaceFolder}"
+      },
+      "icon": {
+        "id": "terminal",
+        "color": "terminal.ansiYellow"
       },
       "presentation": {
         "echo": false,
         "reveal": "always",
+        "focus": false,
         "panel": "dedicated",
-        "group": "cchat-main"
-      },
-      "runOptions": {
-        "runOn": "folderOpen"
+        "group": "cchat-main",
+        "showReuseMessage": false,
+        "preserveTerminalName": true
       },
       "linux": {
         "options": {
@@ -33,20 +54,25 @@
     {
       "label": "Client 1",
       "type": "shell",
-      "command": "echo 'Client 1 ready'; exec bash -l",
+      "command": "echo 'Client ready'; exec bash -l",
       "isBackground": true,
       "problemMatcher": [],
+      "promptOnClose": false,
       "options": {
         "cwd": "${workspaceFolder}"
+      },
+      "icon": {
+        "id": "comment-discussion",
+        "color": "terminal.ansiCyan"
       },
       "presentation": {
         "echo": false,
         "reveal": "always",
+        "focus": false,
         "panel": "dedicated",
-        "group": "cchat-main"
-      },
-      "runOptions": {
-        "runOn": "folderOpen"
+        "group": "cchat-main",
+        "showReuseMessage": false,
+        "preserveTerminalName": true
       },
       "linux": {
         "options": {
@@ -62,20 +88,25 @@
     {
       "label": "Client 2",
       "type": "shell",
-      "command": "echo 'Client 2 ready'; exec bash -l",
+      "command": "echo 'Client ready'; exec bash -l",
       "isBackground": true,
       "problemMatcher": [],
+      "promptOnClose": false,
       "options": {
         "cwd": "${workspaceFolder}"
+      },
+      "icon": {
+        "id": "comment-discussion",
+        "color": "terminal.ansiCyan"
       },
       "presentation": {
         "echo": false,
         "reveal": "always",
+        "focus": false,
         "panel": "dedicated",
-        "group": "cchat-main"
-      },
-      "runOptions": {
-        "runOn": "folderOpen"
+        "group": "cchat-main",
+        "showReuseMessage": false,
+        "preserveTerminalName": true
       },
       "linux": {
         "options": {
@@ -94,17 +125,22 @@
       "command": "echo 'Git terminal ready'; exec bash -l",
       "isBackground": true,
       "problemMatcher": [],
+      "promptOnClose": false,
       "options": {
         "cwd": "${workspaceFolder}"
+      },
+      "icon": {
+        "id": "github",
+        "color": "terminal.ansiRed"
       },
       "presentation": {
         "echo": false,
         "reveal": "always",
+        "focus": false,
         "panel": "dedicated",
-        "group": "cchat-git"
-      },
-      "runOptions": {
-        "runOn": "folderOpen"
+        "group": "cchat-git",
+        "showReuseMessage": false,
+        "preserveTerminalName": true
       },
       "linux": {
         "options": {
@@ -124,7 +160,11 @@
       "args": [
         "./scripts/setup_ubuntu.sh"
       ],
-      "group": "build"
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": []
     },
     {
       "label": "Meson: Build Server",
@@ -136,7 +176,11 @@
         "-Dbuild_server=true",
         "-Dbuild_client=false"
       ],
-      "group": "build"
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": []
     },
     {
       "label": "Meson: Build Server & Client",
@@ -148,7 +192,13 @@
         "-Dbuild_server=true",
         "-Dbuild_client=true"
       ],
-      "group": "build"
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build"
+      },
+      "problemMatcher": []
     },
     {
       "label": "Meson: Build Client",
@@ -160,7 +210,11 @@
         "-Dbuild_server=false",
         "-Dbuild_client=true"
       ],
-      "group": "build"
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": []
     },
     {
       "label": "Meson: Compile",
@@ -171,7 +225,11 @@
         "-C",
         "Build"
       ],
-      "group": "build"
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": []
     },
     {
       "label": "Meson: Wipe",
@@ -180,9 +238,13 @@
       "args": [
         "setup",
         "Build",
-        "--wipe"
+        "\u002d\u002dwipe"
       ],
-      "group": "build"
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": []
     }
   ]
 }
