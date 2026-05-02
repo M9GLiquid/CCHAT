@@ -109,10 +109,10 @@ static bool register_client_name(Server *server, zsock_t *router,
   if (!server || !router || !identity || !buffer)
     return false;
 
-  if (strncmp(buffer, CLIENT_NAME_PREFIX, strlen(CLIENT_NAME_PREFIX)) != 0)
+  if (strncmp(buffer, NAME_PREFIX, strlen(NAME_PREFIX)) != 0)
     return false;
 
-  name = buffer + strlen(CLIENT_NAME_PREFIX);
+  name = buffer + strlen(NAME_PREFIX);
   if (!name_is_available(server, client_id, name)) {
     (void)send_reply(router, identity, "ERROR name already in use\n");
     return true;

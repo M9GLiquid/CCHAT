@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#define cstring const char *
-#define string char *
+typedef const char *cstring;
+typedef char *string;
 
 #define MAX_CLIENTS 100
 #define MAX_CHANNELS 32
