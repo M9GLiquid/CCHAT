@@ -8,17 +8,39 @@
 #include "../common/utils.h"
 #include "zmq_client.h"
 
+#define CLIENT_TRACK_NAME_PREFIX "$LOCAL_NAME "
+#define CLIENT_SESSION_REFRESH_INTERVAL_MS 2000
+
 static void print_connection_usage(cstring app_name) {
   printf("Usage: %s <server_ip> <port>\n", app_name);
   printf("Example: %s 127.0.0.1 5555\n", app_name);
 }
 
-static void client_generate_identity(Client *client) {
+static bool send_reconnect_payload(zsock_t *socket, cstring session_id,
+                                   cstring name) {
+  char payload[BUFFER_SIZE];
+
+  if (!socket || is_blank_string(name) || is_blank_string(session_id))
+    return true;
+
+  snprintf(payload, sizeof(payload), "%s1 %s %s", RECONNECT_PREFIX, session_id,
+           name);
+  return zstr_send(socket, payload) == 0;
+}
+
+static void client_generate_session(Client *client) {
+  long pid = 0;
+  long long now = 0;
+
   if (!client)
     return;
 
-  snprintf(client->identity, sizeof(client->identity), "cchat-%ld-%lld",
-           (long)getpid(), (long long)zclock_usecs());
+  pid = (long)getpid();
+  now = (long)(long)zclock_usecs();
+  snprintf(client->identity, sizeof(client->identity), "cchat-%ld-%lld", pid,
+           now);
+  snprintf(client->session_id, sizeof(client->session_id),
+           "cchat-session-%ld-%lld", pid, now);
 }
 
 static zsock_t *client_open_socket(Client *client) {
@@ -56,6 +78,7 @@ static void client_network_actor(zsock_t *pipe, void *arg) {
   Client *client = (Client *)arg;
   zsock_t *socket = NULL;
   zpoller_t *poller = NULL;
+  char current_name[MAX_USERNAME] = {0};
 
   if (!client) {
     zsock_signal(pipe, 1);
@@ -79,9 +102,9 @@ static void client_network_actor(zsock_t *pipe, void *arg) {
   zsock_signal(pipe, 0);
 
   while (!zsys_interrupted) {
-    void *which = zpoller_wait(poller, -1);
+    void *rdy_socket = zpoller_wait(poller, CLIENT_SESSION_REFRESH_INTERVAL_MS);
 
-    if (which == pipe) {
+    if (rdy_socket == pipe) { // Internal comm, talking to background worker.
       string outbound = zstr_recv(pipe);
       if (!outbound)
         break;
@@ -91,11 +114,21 @@ static void client_network_actor(zsock_t *pipe, void *arg) {
         break;
       }
 
+      if (strncmp(outbound, CLIENT_TRACK_NAME_PREFIX,
+                  strlen(CLIENT_TRACK_NAME_PREFIX)) == 0) {
+        snprintf(current_name, sizeof(current_name), "%s",
+                 outbound + strlen(CLIENT_TRACK_NAME_PREFIX));
+        if (!send_reconnect_payload(socket, client->session_id, current_name))
+          fprintf(stderr, "Reconnect payload send delayed.\n");
+        zstr_free(&outbound);
+        continue;
+      }
+
       if (zstr_send(socket, outbound) != 0)
         fprintf(stderr, "Send delayed; waiting for reconnect.\n");
 
       zstr_free(&outbound);
-    } else if (which == socket) {
+    } else if (rdy_socket == socket) { // Server sent us something
       string incoming = zstr_recv(socket);
       if (!incoming) {
         fprintf(stderr, "Disconnected from the server; reconnecting... \n");
@@ -103,11 +136,27 @@ static void client_network_actor(zsock_t *pipe, void *arg) {
         continue;
       }
 
-      printf("%s", incoming);
-      if (!strchr(incoming, '\n'))
-        printf("\n");
-      fflush(stdout);
+      if (strcmp(incoming, RECONNECT_REQUEST) == 0) {
+        if (!send_reconnect_payload(socket, client->session_id, current_name))
+          fprintf(stderr, "Reconnect payload send delayed.\n");
+        zstr_free(&incoming);
+        continue;
+      }
+
+      if (strcmp(incoming, RECONNECT_OK) != 0) {
+        printf("%s", incoming);
+        if (!strchr(incoming, '\n'))
+          printf("\n");
+        fflush(stdout);
+      }
       zstr_free(&incoming);
+      continue;
+    }
+
+    if (!rdy_socket && !zpoller_terminated(poller) &&
+        !is_blank_string(current_name)) {
+      if (!send_reconnect_payload(socket, client->session_id, current_name))
+        fprintf(stderr, "Reconnect payload send delayed.\n");
       continue;
     }
 
@@ -134,7 +183,7 @@ int client_connect(Client *client, cstring server_ip, int port) {
 
   snprintf(client->server_ip, sizeof(client->server_ip), "%s", server_ip);
   client->port = port;
-  client_generate_identity(client);
+  client_generate_session(client);
 
   client->network_actor = zactor_new(client_network_actor, client);
   if (!client->network_actor)
@@ -146,23 +195,25 @@ int client_connect(Client *client, cstring server_ip, int port) {
 void client_run(Client *client) {
   char name[MAX_USERNAME];
   char input[BUFFER_SIZE];
-  char name_message[BUFFER_SIZE];
+  char track_name_message[BUFFER_SIZE];
   Command command;
 
   if (!client || !client->network_actor)
     return;
 
+  printf("Client Version: %s\n", CLIENT_VERSION);
   printf("Connected.\n");
   do {
-    printf("Enter your name: ");
+    printf("Enter name: ");
     fflush(stdout);
     if (!fgets(name, sizeof(name), stdin))
       return;
     trim_newline(name);
   } while (is_blank_string(name));
 
-  snprintf(name_message, sizeof(name_message), "%s%s", NAME_PREFIX, name);
-  if (zstr_send(client->network_actor, name_message) != 0) {
+  snprintf(track_name_message, sizeof(track_name_message), "%s%s",
+           CLIENT_TRACK_NAME_PREFIX, name);
+  if (zstr_send(client->network_actor, track_name_message) != 0) {
     fprintf(stderr, "Failed to queue name for network actor. \n");
     return;
   }
@@ -200,6 +251,13 @@ void client_run(Client *client) {
     if (zstr_send(client->network_actor, input) != 0) {
       fprintf(stderr, "Failed to queue message for network actor.\n");
       break;
+    }
+
+    if (command.action == ACTION_RENAME) {
+      snprintf(track_name_message, sizeof(track_name_message), "%s%s",
+               CLIENT_TRACK_NAME_PREFIX, command.argv[0]);
+      if (zstr_send(client->network_actor, track_name_message) != 0)
+        fprintf(stderr, "Failed to track client name for reconnect.\n");
     }
   }
 }

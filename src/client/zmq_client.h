@@ -12,6 +12,7 @@ typedef struct {
   char server_ip[64];
   int port;
   char identity[64];
+  char session_id[MAX_SESSION_ID];
 } Client;
 
 int client_connect(Client *client, cstring server_ip, int port);

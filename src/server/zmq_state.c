@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "zmq_state.h"
 #include "../common/utils.h"
+#include "zmq_state.h"
 
 static bool is_valid_client_id(int client_id) {
   return client_id >= 0 && client_id < MAX_CLIENTS;
@@ -119,6 +119,91 @@ int server_add_client(Server *server, const zframe_t *identity) {
   return added;
 }
 
+bool server_update_client_identity(Server *server, int client_id,
+                                   const zframe_t *identity) {
+  zframe_t *id_copy = NULL;
+  Client *client = NULL;
+
+  if (!server || !is_valid_client_id(client_id) || !identity)
+    return false;
+
+  client = &server->clients[client_id];
+  if (!client->active)
+    return false;
+
+  id_copy = zframe_dup((zframe_t *)identity);
+  if (!id_copy)
+    return false;
+
+  if (client->identity)
+    zframe_destroy(&client->identity);
+
+  client->identity = id_copy;
+  return true;
+}
+
+static bool is_session_id_char(char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+         (c >= '0' && c <= '9') || c == '-' || c == '_';
+}
+
+static bool is_valid_session_id(cstring session_id) {
+  size_t len = 0;
+
+  if (is_blank_string(session_id))
+    return false;
+
+  len = strlen(session_id);
+  if (len >= MAX_SESSION_ID)
+    return false;
+
+  for (size_t i = 0; i < len; i++) {
+    char c = session_id[i];
+
+    if (is_session_id_char(c))
+      continue;
+
+    return false;
+  }
+
+  return true;
+}
+
+int server_get_client_by_session(Server *server, cstring session_id) {
+  if (!server || !is_valid_session_id(session_id))
+    return -1;
+
+  for (int i = 0; i < MAX_CLIENTS; i++) {
+    Client *client = &server->clients[i];
+
+    if (!client->active || is_blank_string(client->session_id))
+      continue;
+
+    if (strcmp(client->session_id, session_id) == 0)
+      return i;
+  }
+
+  return -1;
+}
+
+bool server_set_client_session(Server *server, int client_id,
+                               cstring session_id, cstring name) {
+  Client *client = NULL;
+
+  if (!server || !is_valid_client_id(client_id) ||
+      !is_valid_session_id(session_id) || !is_valid_name(name))
+    return false;
+
+  client = &server->clients[client_id];
+  if (!client->active)
+    return false;
+
+  snprintf(client->session_id, sizeof(client->session_id), "%s", session_id);
+  snprintf(client->name, sizeof(client->name), "%s", name);
+  client->named = true;
+  return true;
+}
+
 bool server_set_client_name(Server *server, int client_id, cstring name) {
   Client *client = NULL;
 
@@ -130,7 +215,15 @@ bool server_set_client_name(Server *server, int client_id, cstring name) {
     return false;
 
   snprintf(client->name, sizeof(client->name), "%s", name);
+  client->named = true;
   return true;
+}
+
+bool server_client_has_registered_name(Server *server, int client_id) {
+  if (!server || !is_valid_client_id(client_id))
+    return false;
+
+  return server->clients[client_id].active && server->clients[client_id].named;
 }
 
 cstring server_get_client_name(Server *server, int client_id) {
@@ -163,8 +256,7 @@ static int find_client_id_by_name(Server *server, cstring name) {
   return -1;
 }
 
-bool is_client_name_taken(Server *server, cstring name,
-                          int *client_id_out) {
+bool is_client_name_taken(Server *server, cstring name, int *client_id_out) {
   int client_id = find_client_id_by_name(server, name);
 
   if (client_id_out)
@@ -173,7 +265,8 @@ bool is_client_name_taken(Server *server, cstring name,
   return client_id != -1;
 }
 
-bool server_format_user_list(Server *server, string buffer, size_t buffer_size) {
+bool server_format_user_list(Server *server, string buffer,
+                             size_t buffer_size) {
   size_t used = 0;
   int count = 0;
 
@@ -221,7 +314,7 @@ bool server_get_client_identity_copy(Server *server, int client_id,
     return false;
 
   Client *client = &server->clients[client_id];
-  if (!client->active || !client->identity) 
+  if (!client->active || !client->identity)
     return false;
 
   copy = zframe_dup(client->identity);

@@ -7,3 +7,13 @@ option('build_client',
   type: 'boolean',
   value: false,
   description: 'Build the client executable target')
+
+option('client_version',
+  type: 'string',
+  value: '0.5.0',
+  description: 'Client version string')
+
+option('server_version',
+  type: 'string',
+  value: '0.5.0',
+  description: 'Server version string')

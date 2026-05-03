@@ -1,5 +1,8 @@
 {
   "C_Cpp.default.compileCommands": "/home/thomas/Code/CChat/builddir/compile_commands.json",
+  "files.associations": {
+    "version.h.in": "plaintext"
+  },
   "C_Cpp.formatting": "clangFormat",
   "editor.autoIndent": "full",
   "editor.detectIndentation": false,

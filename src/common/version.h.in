@@ -1,0 +1,7 @@
+#ifndef CCHAT_VERSION_H
+#define CCHAT_VERSION_H
+
+#define CLIENT_VERSION "@CLIENT_VERSION@"
+#define SERVER_VERSION "@SERVER_VERSION@"
+
+#endif

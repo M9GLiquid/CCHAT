@@ -5,11 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "zmq_server.h"
 #include "../common/command_parser.h"
 #include "../common/common.h"
 #include "../common/message_format.h"
 #include "../common/utils.h"
+#include "zmq_server.h"
 #include "zmq_state.h"
 
 typedef struct {
@@ -17,7 +17,8 @@ typedef struct {
   bool started;
 } ServerActorArgs;
 
-static bool extract_payload(zmsg_t *message, string buffer, size_t buffer_size) {
+static bool extract_payload(zmsg_t *message, string buffer,
+                            size_t buffer_size) {
   zframe_t *payload = NULL;
   size_t payload_size = 0;
 
@@ -100,34 +101,77 @@ static bool name_is_available(Server *server, int client_id, cstring name) {
   return existing_id == client_id;
 }
 
-static bool register_client_name(Server *server, zsock_t *router,
-                                 const zframe_t *identity, int client_id,
-                                 cstring buffer) {
+static bool register_client_reconnect_payload(Server *server, zsock_t *router,
+                                              const zframe_t *identity,
+                                              int *client_id_io,
+                                              cstring buffer) {
   FormattedMessage notice;
-  cstring name = NULL;
+  bool had_name = false;
+  char old_name[MAX_USERNAME];
+  char version[8];
+  char session_id[MAX_SESSION_ID];
+  char name[MAX_USERNAME];
+  char extra[8];
+  int client_id = -1;
+  int session_client_id = -1;
+  int scanned = 0;
+  cstring payload = NULL;
 
   if (!server || !router || !identity || !buffer)
     return false;
 
-  if (strncmp(buffer, NAME_PREFIX, strlen(NAME_PREFIX)) != 0)
+  if (strncmp(buffer, RECONNECT_PREFIX, strlen(RECONNECT_PREFIX)) != 0)
     return false;
 
-  name = buffer + strlen(NAME_PREFIX);
+  client_id = *client_id_io;
+  payload = buffer + strlen(RECONNECT_PREFIX);
+  scanned =
+      sscanf(payload, "%7s %63s %31s %7s", version, session_id, name, extra);
+  if (scanned != 3 || strcmp(version, "1") != 0) {
+    (void)send_reply(router, identity, "ERROR invalid reconnect payload\n");
+    return true;
+  }
+
+  session_client_id = server_get_client_by_session(server, session_id);
+  if (session_client_id >= 0 && session_client_id != client_id) {
+    if (!server_update_client_identity(server, session_client_id, identity)) {
+      (void)send_reply(router, identity, "ERROR reconnect failed\n");
+      return true;
+    }
+
+    server_remove_client(server, client_id);
+    client_id = session_client_id;
+    *client_id_io = client_id;
+  }
+
+  had_name = server_client_has_registered_name(server, client_id);
+  snprintf(old_name, sizeof(old_name), "%s",
+           server_get_client_name(server, client_id));
+
+  if (had_name && strcmp(old_name, name) == 0) {
+    (void)send_reply(router, identity, RECONNECT_OK);
+    return true;
+  }
+
   if (!name_is_available(server, client_id, name)) {
     (void)send_reply(router, identity, "ERROR name already in use\n");
     return true;
   }
 
-  if (!server_set_client_name(server, client_id, name)) {
-    (void)send_reply(router, identity, "ERROR invalid name\n");
+  if (!server_set_client_session(server, client_id, session_id, name)) {
+    (void)send_reply(router, identity, "ERROR invalid reconnect payload\n");
     return true;
   }
 
-  notice = format_message(ACTION_JOINED,
-                          server_get_client_name(server, client_id), NULL);
+  notice = had_name ? format_message(ACTION_RENAME, old_name,
+                                     server_get_client_name(server, client_id))
+                    : format_message(ACTION_JOINED,
+                                     server_get_client_name(server, client_id),
+                                     NULL);
   if (notice.ok)
     broadcast_to_clients(server, router, notice.text);
 
+  (void)send_reply(router, identity, RECONNECT_OK);
   return true;
 }
 
@@ -300,7 +344,9 @@ static void server_actor(zsock_t *pipe, void *arg) {
   }
 
   args->started = true;
+  printf("Server Version: %s\n", SERVER_VERSION);
   printf("Server listening on port %d\n", port);
+  fflush(stdout);
   zsock_signal(pipe, 0);
 
   while (!zsys_interrupted) {
@@ -358,7 +404,22 @@ static void server_actor(zsock_t *pipe, void *arg) {
       continue;
     }
 
-    if (register_client_name(&server, router, identity, client_id, buffer)) {
+    if (buffer[0] == '\0') {
+      (void)send_reply(router, identity, RECONNECT_REQUEST);
+      zframe_destroy(&identity);
+      zmsg_destroy(&incoming);
+      continue;
+    }
+
+    if (register_client_reconnect_payload(&server, router, identity, &client_id,
+                                          buffer)) {
+      zframe_destroy(&identity);
+      zmsg_destroy(&incoming);
+      continue;
+    }
+
+    if (!server_client_has_registered_name(&server, client_id)) {
+      (void)send_reply(router, identity, RECONNECT_REQUEST);
       zframe_destroy(&identity);
       zmsg_destroy(&incoming);
       continue;
